@@ -4,8 +4,6 @@ import numpy as np
 import os
 from natsort import natsorted
 import glob
-import matplotlib as mpl
-from matplotlib import cm
 import yaml
 from yaml import SafeLoader
 
@@ -195,15 +193,13 @@ while True:
                                              norm_type=cv2.NORM_MINMAX, \
                                              dtype=cv2.CV_16S)
 
-    disparity_vis = cv2.ximgproc.getDisparityVis(filtered_disparity_CV16S, vis_mult)
-    # type of disparity_vis -> UINT 8 (0-255)
+    disparity_vis = cv2.ximgproc.getDisparityVis(filtered_disparity_CV16S, vis_mult) # type of disparity_vis -> UINT 8 (0-255)
 
     if colormap:
         disparity_colormap_L = cv2.applyColorMap(filtered_disparity, colormap=cv2.COLORMAP_JET)
         cv2.namedWindow('Colormap')
         cv2.imshow('Colormap',disparity_colormap_L)
 
-    ##DEPTH SECTION##
     depth_map = np.zeros(np.shape(filtered_disparity))
     depth_map = focal_length_cam0 * baseline / filtered_disparity
     mask = cv2.inRange(depth_map, 0, depth_threshold)
@@ -216,7 +212,7 @@ while True:
     cv2.setMouseCallback("depth_map", mouse_callback)
 
 
-    # number of active pixels bigger than 1% of the pixel sum
+    # Number of active pixels bigger than 1% of the pixel sum
     if np.sum(mask) / 255.0 > 0.01 * mask.shape[0] * mask.shape[1]:
         # Contour detection
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -225,7 +221,7 @@ while True:
         # Check if detected contour is significantly large (to avoid multiple tiny regions)
         if cv2.contourArea(cnts[0]) > 0.01 * mask.shape[0] * mask.shape[1]:
             x, y, w, h = cv2.boundingRect(cnts[0])
-            # finding average depth of region represented by the largest contour
+            # Finding average depth of region represented by the largest contour
             mask2 = np.zeros_like(mask)
             cv2.drawContours(mask2, cnts, 0, (255), -1)
             # Calculating the average depth of the object closer than the safe distance
