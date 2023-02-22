@@ -9,8 +9,7 @@ from yaml import SafeLoader
 
 curr_dir = os.path.dirname(os.path.abspath(__file__))
 
-trackbars: bool = False
-colormap: bool = True
+ExTrackbars: bool = False  # True for Extended Trackbars
 depth_threshold = 0.7
 focal_length_cam0 = math.sqrt(458.654 ** 2 + 457.296 ** 2)
 switch = 0
@@ -88,7 +87,7 @@ def mouse_callback(event, x, y, flags, param):
         print("Depth at ({}, {}) is {}".format(x, y, depth))
 
 
-if trackbars:
+if ExTrackbars:
     cv2.namedWindow('Parameters Tuner', cv2.WINDOW_NORMAL)
     cv2.resizeWindow('Parameters Tuner', 1300, 400)
     cv2.createTrackbar('minDisparity', 'Parameters Tuner', 27, 50, nothing)
@@ -125,8 +124,7 @@ i = 0
 T_LR, kcam_L, pcam_L, kcam_R, pcam_R = fetch_calculate()
 baseline = np.linalg.norm(T_LR[:3, -1])
 
-map1L, map2L, map1R, map2R, Q= rectify(T_LR, kcam_L, pcam_L, kcam_R, pcam_R)
-
+map1L, map2L, map1R, map2R, Q = rectify(T_LR, kcam_L, pcam_L, kcam_R, pcam_R)
 
 while True:
     imL = cv2.imread(gt_disparity_map2[i])
@@ -135,7 +133,7 @@ while True:
     imRrecti = cv2.remap(imR, map1R, map2R, cv2.INTER_LINEAR)
     imLrecti = cv2.remap(imL, map1L, map2L, cv2.INTER_LINEAR)
 
-    if trackbars:
+    if ExTrackbars:
         minDisparity = cv2.getTrackbarPos('minDisparity', 'Parameters Tuner')  # def 27
         numDisparities = cv2.getTrackbarPos('numDisparities', 'Parameters Tuner') * 16  # def 2
         blockSize = cv2.getTrackbarPos('blockSize', 'Parameters Tuner')  # def 3
@@ -161,8 +159,8 @@ while True:
         left_matcher.setP2(trackbarP2)
         left_matcher.setPreFilterCap(preFilterCap)
     else:
-        numDisparities = cv2.getTrackbarPos('numDisparities', 'Parameters Tuner') * 16  # def 2
-        blockSize = cv2.getTrackbarPos('blockSize', 'Parameters Tuner')  # def 3
+        numDisparities = cv2.getTrackbarPos('numDisparities', 'Parameters Tuner') * 16
+        blockSize = cv2.getTrackbarPos('blockSize', 'Parameters Tuner')
         lmbda = cv2.getTrackbarPos('WLS: lambda', 'Parameters Tuner')
         sigma = cv2.getTrackbarPos('WLS: sigma', 'Parameters Tuner')
         vis_mult = cv2.getTrackbarPos('vis_mult', 'Parameters Tuner')
@@ -170,7 +168,7 @@ while True:
         left_matcher.setBlockSize(blockSize)
 
     right_matcher = cv2.ximgproc.createRightMatcher(left_matcher)
-    if trackbars:
+    if ExTrackbars:
         right_matcher.setMinDisparity(minDisparity)
         right_matcher.setNumDisparities(numDisparities)
         right_matcher.setBlockSize(blockSize)
@@ -193,24 +191,12 @@ while True:
                                              norm_type=cv2.NORM_MINMAX, \
                                              dtype=cv2.CV_16S)
 
-    disparity_vis = cv2.ximgproc.getDisparityVis(filtered_disparity_CV16S, vis_mult) # type of disparity_vis -> UINT 8 (0-255)
-
-    if colormap:
-        disparity_colormap_L = cv2.applyColorMap(filtered_disparity, colormap=cv2.COLORMAP_JET)
-        cv2.namedWindow('Colormap')
-        cv2.imshow('Colormap',disparity_colormap_L)
+    disparity_vis = cv2.ximgproc.getDisparityVis(filtered_disparity_CV16S,
+                                                 vis_mult)  # type of disparity_vis -> UINT 8 (0-255)
 
     depth_map = np.zeros(np.shape(filtered_disparity))
     depth_map = focal_length_cam0 * baseline / filtered_disparity
     mask = cv2.inRange(depth_map, 0, depth_threshold)
-
-    cv2.namedWindow('mask')
-    cv2.imshow('mask', mask)
-
-    cv2.namedWindow('depth_map')
-    cv2.imshow('depth_map', depth_map)
-    cv2.setMouseCallback("depth_map", mouse_callback)
-
 
     # Number of active pixels bigger than 1% of the pixel sum
     if np.sum(mask) / 255.0 > 0.01 * mask.shape[0] * mask.shape[1]:
@@ -238,17 +224,23 @@ while True:
         else:
             cv2.putText(imLrecti, "SAFE!", (100, 100), 1, 3, (0, 255, 0), 2, 3)
 
-
     cv2.namedWindow('left image')
     cv2.imshow('left image', imLrecti)
+
+    cv2.namedWindow('mask')
+    cv2.imshow('mask', mask)
+
+    cv2.namedWindow('depth_map')
+    cv2.imshow('depth_map', depth_map)
+    cv2.setMouseCallback("depth_map", mouse_callback)
 
     if cv2.waitKey(1) == 27:
         switch += 1
 
-    if switch % 2 == 0:
+    if switch % 2 == 0:  # Pause
         pass
     else:
         i = i + 1
 
-    if (i == len(gt_disparity_map) - 2):
+    if i == len(gt_disparity_map) - 1:  # Rewind to the beginning
         i = 1
